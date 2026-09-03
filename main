@@ -1,0 +1,118 @@
+cpp
+#include <Keyboard.h>
+
+// Pins für die Uhren-Taster
+const int tasterWeiss = 2;
+const int tasterSchwarz = 3;
+
+// Pins für die Unterverwandlungs-Taster
+const int tasterSpringer = 4;
+const int tasterTurm = 5;
+const int tasterLaeufer = 6;
+
+// Pins für die Hubmagneten (MOSFETs)
+const int magnetWeiss = 11;
+const int magnetSchwarz = 12;
+
+// Optimierte Zeiten (in Millisekunden)
+const unsigned long stoesselDauer = 80;   // Kraftvoller, kurzer Impuls für die Wippe
+const unsigned long entprellZeit = 150;   // Knackige Reaktionszeit für schnelle Spieler
+
+// Variablen für das Timing
+unsigned long magnetAnZeitWeiss = 0;
+unsigned long magnetAnZeitSchwarz = 0;
+unsigned long letzteAktivierungWeiss = 0;
+unsigned long letzteAktivierungSchwarz = 0;
+
+// Status-Variablen für die Magnete
+bool magnetIstAktivWeiss = false;
+bool magnetIstAktivSchwarz = false;
+
+// Status-Variablen für die anstehende Verwandlung
+// 0 = Normal (Dame), 1 = Springer, 2 = Turm, 3 = Läufer
+int gewaehlteVerwandlung = 0; 
+
+void setup() {
+  // Alle Taster-Pins als Eingang mit internem Pull-Up
+  pinMode(tasterWeiss, INPUT_PULLUP);
+  pinMode(tasterSchwarz, INPUT_PULLUP);
+  pinMode(tasterSpringer, INPUT_PULLUP);
+  pinMode(tasterTurm, INPUT_PULLUP);
+  pinMode(tasterLaeufer, INPUT_PULLUP);
+  
+  // Magnet-Pins als Ausgang
+  pinMode(magnetWeiss, OUTPUT);
+  pinMode(magnetSchwarz, OUTPUT);
+  
+  digitalWrite(magnetWeiss, LOW);
+  digitalWrite(magnetSchwarz, LOW);
+  
+  Keyboard.begin();
+}
+
+void loop() {
+  unsigned long aktuelleZeit = millis();
+
+  // =========================================================================
+  // 1. UNTERVERWANDLUNGS-TASTEN ABFRAGEN (Hintergrund-Speicherung)
+  // =========================================================================
+  if (digitalRead(tasterSpringer) == LOW) {
+    gewaehlteVerwandlung = 1; // Springer gemerkt
+  }
+  else if (digitalRead(tasterTurm) == LOW) {
+    gewaehlteVerwandlung = 2; // Turm gemerkt
+  }
+  else if (digitalRead(tasterLaeufer) == LOW) {
+    gewaehlteVerwandlung = 3; // Läufer gemerkt
+  }
+
+
+  // =========================================================================
+  // 2. LOGIK FÜR WEISS (Uhr drücken)
+  // =========================================================================
+  if (digitalRead(tasterWeiss) == LOW && (aktuelleZeit - letzteAktivierungWeiss >= entprellZeit)) {
+    digitalWrite(magnetWeiss, HIGH);         // Stößel schießt sofort los
+    magnetAnZeitWeiss = aktuelleZeit;
+    magnetIstAktivWeiss = true;
+    letzteAktivierungWeiss = aktuelleZeit;
+
+    // Sende passenden Buchstaben an Python (Großbuchstaben für Weiß)
+    if (gewaehlteVerwandlung == 1)      Keyboard.print("N"); // kNight / Springer
+    else if (gewaehlteVerwandlung == 2) Keyboard.print("R"); // Rook / Turm
+    else if (gewaehlteVerwandlung == 3) Keyboard.print("B"); // Bishop / Läufer
+    else                                Keyboard.print("W"); // Normaler Zug (bzw. Dame)
+    
+    gewaehlteVerwandlung = 0; // Status für den nächsten Zug zurücksetzen
+  }
+
+  // Stößel für Weiß nach Ablauf der Dauer automatisch einfahren
+  if (magnetIstAktivWeiss && (aktuelleZeit - magnetAnZeitWeiss >= stoesselDauer)) {
+    digitalWrite(magnetWeiss, LOW);
+    magnetIstAktivWeiss = false;
+  }
+
+
+  // =========================================================================
+  // 3. LOGIK FÜR SCHWARZ (Uhr drücken)
+  // =========================================================================
+  if (digitalRead(tasterSchwarz) == LOW && (aktuelleZeit - letzteAktivierungSchwarz >= entprellZeit)) {
+    digitalWrite(magnetSchwarz, HIGH);        // Stößel schießt sofort los
+    magnetAnZeitSchwarz = aktuelleZeit;
+    magnetIstAktivSchwarz = true;
+    letzteAktivierungSchwarz = aktuelleZeit;
+
+    // Sende passenden Buchstaben an Python (Kleinbuchstaben für Schwarz)
+    if (gewaehlteVerwandlung == 1)      Keyboard.print("n"); // knight / Springer
+    else if (gewaehlteVerwandlung == 2) Keyboard.print("r"); // rook / Turm
+    else if (gewaehlteVerwandlung == 3) Keyboard.print("b"); // bishop / Läufer
+    else                                Keyboard.print("S"); // Normaler Zug (bzw. Dame)
+    
+    gewaehlteVerwandlung = 0; // Status für den nächsten Zug zurücksetzen
+  }
+
+  // Stößel für Schwarz nach Ablauf der Dauer automatisch einfahren
+  if (magnetIstAktivSchwarz && (aktuelleZeit - magnetAnZeitSchwarz >= stoesselDauer)) {
+    digitalWrite(magnetSchwarz, LOW);
+    magnetIstAktivSchwarz = false;
+  }
+}
