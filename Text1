@@ -1,3 +1,10 @@
+Material:
+RF520-Treibermodul MOSFET-Treibermodul 3,3 V / 5 V PWM-Ausgangstreiberplatinenmodul 0-24 V Ausgang für SCM für ARM für Raspberry Pi (3er-Pack)
+Hubmagnet 12V, Elektromagnet Pull 12V, JF-0530B, 12V
+1N4007, 10 Stück
+Handgehäuse, 1599KBK, 220 x 140 x 40 (Pollin)
+Hammond, IP54, Schwarz Stecker-Schaltnetzteil, 12V-/2,5A, 
+
 So fängt dein Python-Skript die Signale ab:
 In deiner Python-Logik kannst du die empfangenen Buchstaben jetzt wie folgt zuordnen, um die FEN perfekt zu steuern:
 •	W / S: Normaler Zug (falls ein Bauer auf die Grundlinie zieht, wird er automatisch zur Dame Q/q).
