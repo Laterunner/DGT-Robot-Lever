@@ -1,0 +1,6 @@
+So fängt dein Python-Skript die Signale ab:
+In deiner Python-Logik kannst du die empfangenen Buchstaben jetzt wie folgt zuordnen, um die FEN perfekt zu steuern:
+•	W / S: Normaler Zug (falls ein Bauer auf die Grundlinie zieht, wird er automatisch zur Dame Q/q).
+•	N / n: Der ziehende Bauer wird zum Springer.
+•	R / r: Der ziehende Bauer wird zum Turm.
+•	B / b: Der ziehende Bauer wird zum Läufer.
