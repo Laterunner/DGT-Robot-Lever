@@ -1,0 +1,159 @@
+cpp#include <Keyboard.h>
+
+// ==========================================
+// 1. PIN-KONFIGURATION (ARDUINO LEONARDO)
+// ==========================================
+
+// Haupt-Uhrtaster
+const int tasterWeiss = 2;
+const int tasterSchwarz = 3;
+
+// Ausgänge zu den MOSFETs (Hubmagneten)
+const int magnetWeiss = 11;
+const int magnetSchwarz = 12;
+
+// Umwandlungstasten für WEISS (analoge Pins als digitale Eingänge genutzt)
+const int pinQ_Weiss = A0; // Dame  (Q)
+const int pinR_Weiss = A1; // Turm  (R)
+const int pinB_Weiss = A2; // Läufer (B)
+const int pinN_Weiss = A3; // Springer (N)
+
+// Umwandlungstasten für SCHWARZ
+const int pinQ_Schwarz = 4; // Dame  (q)
+const int pinR_Schwarz = 5; // Turm  (r)
+const int pinB_Schwarz = 6; // Läufer (b)
+const int pinN_Schwarz = 7; // Springer (n)
+
+// ==========================================
+// 2. TIMING-EINSTELLUNGEN
+// ==========================================
+const unsigned long stoesselDauer = 80;    // Wie viele Millisekunden der Stößel ausfahren soll
+const unsigned long entprellZeitUhr = 150;  // Sperrzeit für die Haupttaster (150ms)
+const unsigned long entprellZeitFigur = 300;// Sperrzeit für Figurentasten (300ms)
+
+// ==========================================
+// 3. VARIABLEN FÜR SYSTEMZEIT & STATUS
+// ==========================================
+unsigned long magnetAnZeitWeiss = 0;
+unsigned long magnetAnZeitSchwarz = 0;
+unsigned long letzteUhrWeiss = 0;
+unsigned long letzteUhrSchwarz = 0;
+unsigned long letzteFigurZeit = 0; 
+
+bool magnetAktivWeiss = false;
+bool magnetAktivSchwarz = false;
+
+// ==========================================
+// 4. SETUP (INITIALISIERUNG)
+// ==========================================
+void setup() {
+  // Haupttaster mit internem Pull-Up (schalten gegen GND)
+  pinMode(tasterWeiss, INPUT_PULLUP);
+  pinMode(tasterSchwarz, INPUT_PULLUP);
+  
+  // Magnet-Pins als Ausgang definieren
+  pinMode(magnetWeiss, OUTPUT);
+  pinMode(magnetSchwarz, OUTPUT);
+  
+  // Magnete beim Start sicher ausschalten
+  digitalWrite(magnetWeiss, LOW);
+  digitalWrite(magnetSchwarz, LOW);
+
+  // Figurentasten für Weiß mit internem Pull-Up
+  pinMode(pinQ_Weiss, INPUT_PULLUP);
+  pinMode(pinR_Weiss, INPUT_PULLUP);
+  pinMode(pinB_Weiss, INPUT_PULLUP);
+  pinMode(pinN_Weiss, INPUT_PULLUP);
+  
+  // Figurentasten für Schwarz mit internem Pull-Up
+  pinMode(pinQ_Schwarz, INPUT_PULLUP);
+  pinMode(pinR_Schwarz, INPUT_PULLUP);
+  pinMode(pinB_Schwarz, INPUT_PULLUP);
+  pinMode(pinN_Schwarz, INPUT_PULLUP);
+
+  // USB-Tastatur-Emulation starten
+  Keyboard.begin();
+}
+
+// ==========================================
+// 5. MAIN LOOP (HAUPTSCHLEIFE)
+// ==========================================
+void loop() {
+  unsigned long aktuelleZeit = millis();
+
+  // ------------------------------------------
+  // MECHANISCHES TIMING: STÖSSEL WIEDER EINFAHREN
+  // ------------------------------------------
+  if (magnetAktivWeiss && (aktuelleZeit - magnetAnZeitWeiss >= stoesselDauer)) {
+    digitalWrite(magnetWeiss, LOW);
+    magnetAktivWeiss = false;
+  }
+  if (magnetAktivSchwarz && (aktuelleZeit - magnetAnZeitSchwarz >= stoesselDauer)) {
+    digitalWrite(magnetSchwarz, LOW);
+    magnetAktivSchwarz = false;
+  }
+
+  // ------------------------------------------
+  // NORMALE UHR-TASTER (REGULÄRE ZÜGE)
+  // ------------------------------------------
+  
+  // Weiss drückt Uhr
+  if (digitalRead(tasterWeiss) == LOW && (aktuelleZeit - letzteUhrWeiss >= entprellZeitUhr)) {
+    digitalWrite(magnetWeiss, HIGH);
+    magnetAnZeitWeiss = aktuelleZeit;
+    magnetAktivWeiss = true;
+    letzteUhrWeiss = aktuelleZeit;
+    Keyboard.print("W"); 
+  }
+
+  // Schwarz drückt Uhr
+  if (digitalRead(tasterSchwarz) == LOW && (aktuelleZeit - letzteUhrSchwarz >= entprellZeitUhr)) {
+    digitalWrite(magnetSchwarz, HIGH);
+    magnetAnZeitSchwarz = aktuelleZeit;
+    magnetAktivSchwarz = true;
+    letzteUhrSchwarz = aktuelleZeit;
+    Keyboard.print("S");
+  }
+
+  // ------------------------------------------
+  // UMWANDLUNGS-TASTER (DIREKTE BESTÄTIGUNG)
+  // ------------------------------------------
+  if (aktuelleZeit - letzteFigurZeit >= entprellZeitFigur) {
+    
+    // --- WEISS UMWANDLUNG (Löst weißen Hubmagneten aus + sendet Figur) ---
+    if (digitalRead(pinQ_Weiss) == LOW) {
+      digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+      Keyboard.print("Q"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinR_Weiss) == LOW) {
+      digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+      Keyboard.print("R"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinB_Weiss) == LOW) {
+      digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+      Keyboard.print("B"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinN_Weiss) == LOW) {
+      digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+      Keyboard.print("N"); letzteFigurZeit = aktuelleZeit;
+    }
+    
+    // --- SCHWARZ UMWANDLUNG (Löst schwarzen Hubmagneten aus + sendet Figur) ---
+    else if (digitalRead(pinQ_Schwarz) == LOW) {
+      digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+      Keyboard.print("q"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinR_Schwarz) == LOW) {
+      digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+      Keyboard.print("r"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinB_Schwarz) == LOW) {
+      digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+      Keyboard.print("b"); letzteFigurZeit = aktuelleZeit;
+    }
+    else if (digitalRead(pinN_Schwarz) == LOW) {
+      digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+      Keyboard.print("n"); letzteFigurZeit = aktuelleZeit;
+    }
+  }
+}
