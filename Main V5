@@ -1,4 +1,4 @@
-//Version 5, mit 4 Dioden, umd die Uhr links und rechts vom Brett benutzen zu können
+//Version 5, mit 4 Dioden, um die Uhr links und rechts vom Brett benutzen zu können
 
 #include <Keyboard.h>
 
