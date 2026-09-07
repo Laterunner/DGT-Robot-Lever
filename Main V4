@@ -1,0 +1,196 @@
+//V4.0
+#include <Keyboard.h>
+
+// ==========================================
+// 1. PIN-KONFIGURATION
+// ==========================================
+const int tasterWeiss = 2;
+const int tasterSchwarz = 3;
+const int magnetWeiss = 11;
+const int magnetSchwarz = 12;
+
+// Pin 8 fungiert jetzt als manueller Zug-Wechsler
+const int tasterWechsel = 8;   // Drücken wechselt manuell zwischen Weiß und Schwarz
+const int ledWeiss = 9;       // Leuchtet, wenn Weiß am Zug ist
+const int ledSchwarz = 10;    // Leuchtet, wenn Schwarz am Zug ist
+
+const int pinQ_Weiss = A0; 
+const int pinR_Weiss = A1; 
+const int pinB_Weiss = A2; 
+const int pinN_Weiss = A3; 
+
+const int pinQ_Schwarz = 4; 
+const int pinR_Schwarz = 5; 
+const int pinB_Schwarz = 6; 
+const int pinN_Schwarz = 7; 
+
+// ==========================================
+// 2. TIMING-EINSTELLUNGEN
+// ==========================================
+const unsigned long stoesselDauer = 80;    
+const unsigned long entprellZeitUhr = 150;  
+const unsigned long entprellZeitFigur = 300;
+const unsigned long entprellZeitWechsel = 300; // Etwas höhere Entprellung für den Wechsler
+
+// ==========================================
+// 3. VARIABLEN FÜR SYSTEMZEIT & ZUG-SPERRE
+// ==========================================
+unsigned long magnetAnZeitWeiss = 0;
+unsigned long magnetAnZeitSchwarz = 0;
+unsigned long letzteUhrWeiss = 0;
+unsigned long letzteUhrSchwarz = 0;
+unsigned long letzteFigurZeit = 0; 
+unsigned long letzteWechselZeit = 0;
+
+bool magnetAktivWeiss = false;
+bool magnetAktivSchwarz = false;
+
+// ZUG-SPERRE: 'W' = Weiß am Zug, 'S' = Schwarz am Zug
+char werIstAmZug = 'W'; 
+
+// ==========================================
+// 4. SETUP
+// ==========================================
+void setup() {
+  pinMode(tasterWeiss, INPUT_PULLUP);
+  pinMode(tasterSchwarz, INPUT_PULLUP);
+  pinMode(tasterWechsel, INPUT_PULLUP);
+  
+  pinMode(magnetWeiss, OUTPUT);
+  pinMode(magnetSchwarz, OUTPUT);
+  pinMode(ledWeiss, OUTPUT);
+  pinMode(ledSchwarz, OUTPUT);
+  
+  digitalWrite(magnetWeiss, LOW);
+  digitalWrite(magnetSchwarz, LOW);
+
+  pinMode(pinQ_Weiss, INPUT_PULLUP);
+  pinMode(pinR_Weiss, INPUT_PULLUP);
+  pinMode(pinB_Weiss, INPUT_PULLUP);
+  pinMode(pinN_Weiss, INPUT_PULLUP);
+  
+  pinMode(pinQ_Schwarz, INPUT_PULLUP);
+  pinMode(pinR_Schwarz, INPUT_PULLUP);
+  pinMode(pinB_Schwarz, INPUT_PULLUP);
+  pinMode(pinN_Schwarz, INPUT_PULLUP);
+
+  // Erste LED-Anzeige setzen (Weiß beginnt standardmäßig)
+  aktualisiereStatusLEDs();
+
+  Keyboard.begin();
+}
+
+// ==========================================
+// 5. MAIN LOOP
+// ==========================================
+void loop() {
+  unsigned long aktuelleZeit = millis();
+
+  // ------------------------------------------
+  // MANUELLER ZUG-WECHSER (TOGGLE) AN PIN 8
+  // ------------------------------------------
+  if (digitalRead(tasterWechsel) == LOW && (aktuelleZeit - letzteWechselZeit >= entprellZeitWechsel)) {
+    if (werIstAmZug == 'W') {
+      werIstAmZug = 'S';
+    } else {
+      werIstAmZug = 'W';
+    }
+    aktualisiereStatusLEDs();
+    letzteWechselZeit = aktuelleZeit;
+  }
+
+  // ------------------------------------------
+  // MECHANISCHES TIMING: STÖSSEL WIEDER EINFAHREN
+  // ------------------------------------------
+  if (magnetAktivWeiss && (aktuelleZeit - magnetAnZeitWeiss >= stoesselDauer)) {
+    digitalWrite(magnetWeiss, LOW);
+    magnetAktivWeiss = false;
+  }
+  if (magnetAktivSchwarz && (aktuelleZeit - magnetAnZeitSchwarz >= stoesselDauer)) {
+    digitalWrite(magnetSchwarz, LOW);
+    magnetAktivSchwarz = false;
+  }
+
+  // ==========================================
+  // ZÜGE FÜR WEISS (Nur aktiv, wenn werIstAmZug == 'W')
+  // ==========================================
+  if (werIstAmZug == 'W') {
+    
+    // Normaler Uhrtaster
+    if (digitalRead(tasterWeiss) == LOW && (aktuelleZeit - letzteUhrWeiss >= entprellZeitUhr)) {
+      digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+      letzteUhrWeiss = aktuelleZeit;
+      Keyboard.print("W"); 
+      werIstAmZug = 'S'; 
+      aktualisiereStatusLEDs();
+    }
+    
+    // Umwandlungstasten für Weiß
+    else if (aktuelleZeit - letzteFigurZeit >= entprellZeitFigur) {
+      if (digitalRead(pinQ_Weiss) == LOW) {
+        digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+        Keyboard.print("Q"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinR_Weiss) == LOW) {
+        digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+        Keyboard.print("R"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinB_Weiss) == LOW) {
+        digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+        Keyboard.print("B"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinN_Weiss) == LOW) {
+        digitalWrite(magnetWeiss, HIGH); magnetAnZeitWeiss = aktuelleZeit; magnetAktivWeiss = true;
+        Keyboard.print("N"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereStatusLEDs();
+      }
+    }
+  }
+
+  // ==========================================
+  // ZÜGE FÜR SCHWARZ (Nur aktiv, wenn werIstAmZug == 'S')
+  // ==========================================
+  if (werIstAmZug == 'S') {
+    
+    // Normaler Uhrtaster
+    if (digitalRead(tasterSchwarz) == LOW && (aktuelleZeit - letzteUhrSchwarz >= entprellZeitUhr)) {
+      digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+      letzteUhrSchwarz = aktuelleZeit;
+      Keyboard.print("S");
+      werIstAmZug = 'W'; 
+      aktualisiereStatusLEDs();
+    }
+    
+    // Umwandlungstasten für Schwarz
+    else if (aktuelleZeit - letzteFigurZeit >= entprellZeitFigur) {
+      if (digitalRead(pinQ_Schwarz) == LOW) {
+        digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+        Keyboard.print("q"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinR_Schwarz) == LOW) {
+        digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+        Keyboard.print("r"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinB_Schwarz) == LOW) {
+        digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+        Keyboard.print("b"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereStatusLEDs();
+      }
+      else if (digitalRead(pinN_Schwarz) == LOW) {
+        digitalWrite(magnetSchwarz, HIGH); magnetAnZeitSchwarz = aktuelleZeit; magnetAktivSchwarz = true;
+        Keyboard.print("n"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereStatusLEDs();
+      }
+    }
+  }
+}
+
+// ==========================================
+// HILFSFUNKTION FÜR STATUS-LEDS
+// ==========================================
+void aktualisiereStatusLEDs() {
+  if (werIstAmZug == 'W') {
+    digitalWrite(ledWeiss, HIGH);
+    digitalWrite(ledSchwarz, LOW);
+  } else {
+    digitalWrite(ledWeiss, LOW);
+    digitalWrite(ledSchwarz, HIGH);
+  }
+}
