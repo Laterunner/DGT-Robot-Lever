@@ -1,0 +1,223 @@
+//Main V5.3
+#include <Keyboard.h>
+
+// ==========================================
+// 1. PIN-KONFIGURATION
+// ==========================================
+const int tasterWeiss = 2;
+const int tasterSchwarz = 3;
+
+// Hubmagneten an den physischen Positionen
+const int magnetLinks = A4;  
+const int magnetRechts = A5; 
+
+// Die beiden Steuerschalter
+const int tasterZugWechsel = 8;   
+const int tasterUhrSeite = 13;    
+
+// Die 4 LEDs
+const int ledGelbLinks = 9;
+const int ledRotLinks = 10;
+const int ledGelbRechts = 11;
+const int ledRotRechts = 12;
+
+// Figurenerkennung
+const int pinQ_Weiss = A0; 
+const int pinR_Weiss = A1; 
+const int pinB_Weiss = A2; 
+const int pinN_Weiss = A3; 
+const int pinQ_Schwarz = 4; 
+const int pinR_Schwarz = 5; 
+const int pinB_Schwarz = 6; 
+const int pinN_Schwarz = 7; 
+
+// ==========================================
+// 2. TIMING-EINSTELLUNGEN
+// ==========================================
+const unsigned long stoesselDauer = 80;    
+const unsigned long entprellZeitUhr = 150;  
+const unsigned long entprellZeitFigur = 300;
+const unsigned long entprellZeitSchalter = 50; 
+
+// ==========================================
+// 3. SYSTEMVARIABLEN
+// ==========================================
+unsigned long magnetAnZeitLinks = 0;
+unsigned long magnetAnZeitRechts = 0;
+unsigned long letzteUhrWeiss = 0;
+unsigned long letzteUhrSchwarz = 0;
+unsigned long letzteFigurZeit = 0; 
+unsigned long letzteZugWechselZeit = 0;
+unsigned long letzteUhrSeiteZeit = 0;
+
+bool magnetAktivLinks = false;
+bool magnetAktivRechts = false;
+
+// ZUSTANDSVARIABLEN
+char werIstAmZug = 'W';          // 'W' = Weiß, 'S' = Schwarz
+bool weissIstLinksSitzen = true; // true = Weiß sitzt links, false = Weiß sitzt rechts
+
+int letzterTasterZustandZugWechsel = HIGH;
+int letzterTasterZustandUhrSeite = HIGH;
+
+// ==========================================
+// 4. SETUP
+// ==========================================
+void setup() {
+  pinMode(tasterWeiss, INPUT_PULLUP);
+  pinMode(tasterSchwarz, INPUT_PULLUP);
+  pinMode(tasterZugWechsel, INPUT_PULLUP);
+  pinMode(tasterUhrSeite, INPUT_PULLUP);
+  
+  pinMode(magnetLinks, OUTPUT);
+  pinMode(magnetRechts, OUTPUT);
+  digitalWrite(magnetLinks, LOW);
+  digitalWrite(magnetRechts, LOW);
+
+  pinMode(ledGelbLinks, OUTPUT);
+  pinMode(ledRotLinks, OUTPUT);
+  pinMode(ledGelbRechts, OUTPUT);
+  pinMode(ledRotRechts, OUTPUT);
+
+  pinMode(pinQ_Weiss, INPUT_PULLUP);
+  pinMode(pinR_Weiss, INPUT_PULLUP);
+  pinMode(pinB_Weiss, INPUT_PULLUP);
+  pinMode(pinN_Weiss, INPUT_PULLUP);
+  pinMode(pinQ_Schwarz, INPUT_PULLUP);
+  pinMode(pinR_Schwarz, INPUT_PULLUP);
+  pinMode(pinB_Schwarz, INPUT_PULLUP);
+  pinMode(pinN_Schwarz, INPUT_PULLUP);
+
+  aktualisiereAnzeige();
+  Keyboard.begin();
+}
+
+// ==========================================
+// 5. MAIN LOOP
+// ==========================================
+void loop() {
+  unsigned long aktuelleZeit = millis();
+
+  // ------------------------------------------
+  // SCHALTER 1: MANUELLER SPIELER-WECHSEL (PIN 8)
+  // ------------------------------------------
+  int aktuellerTasterZugWechsel = digitalRead(tasterZugWechsel);
+  if (aktuellerTasterZugWechsel == LOW && letzterTasterZustandZugWechsel == HIGH && (aktuelleZeit - letzteZugWechselZeit >= entprellZeitSchalter)) {
+    werIstAmZug = (werIstAmZug == 'W') ? 'S' : 'W';
+    aktualisiereAnzeige();
+    letzteZugWechselZeit = aktuelleZeit;
+  }
+  letzterTasterZustandZugWechsel = aktuellerTasterZugWechsel;
+
+  // ------------------------------------------
+  // SCHALTER 2: FARB-SEITEN TAUSCHEN (PIN 13)
+  // ------------------------------------------
+  int aktuellerTasterUhrSeite = digitalRead(tasterUhrSeite);
+  if (aktuellerTasterUhrSeite == LOW && letzterTasterZustandUhrSeite == HIGH && (aktuelleZeit - letzteUhrSeiteZeit >= entprellZeitSchalter)) {
+    weissIstLinksSitzen = !weissIstLinksSitzen; 
+    aktualisiereAnzeige();
+    letzteUhrSeiteZeit = aktuelleZeit;
+  }
+  letzterTasterZustandUhrSeite = aktuellerTasterUhrSeite;
+
+  // ------------------------------------------
+  // MECHANISCHES TIMING: STÖSSEL WIEDER EINFAHREN
+  // ------------------------------------------
+  if (magnetAktivLinks && (aktuelleZeit - magnetAnZeitLinks >= stoesselDauer)) {
+    digitalWrite(magnetLinks, LOW);
+    magnetAktivLinks = false;
+  }
+  if (magnetAktivRechts && (aktuelleZeit - magnetAnZeitRechts >= stoesselDauer)) {
+    digitalWrite(magnetRechts, LOW);
+    magnetAktivRechts = false;
+  }
+
+  // ==========================================
+  // ZÜGE FÜR WEISS (Nur aktiv, wenn werIstAmZug == 'W')
+  // ==========================================
+  if (werIstAmZug == 'W') {
+    if (digitalRead(tasterWeiss) == LOW && (aktuelleZeit - letzteUhrWeiss >= entprellZeitUhr)) {
+      // Feuere den physisch korrekten Magneten basierend auf der Position
+      int zielMagnet = weissIstLinksSitzen ? magnetLinks : magnetRechts;
+      digitalWrite(zielMagnet, HIGH); 
+      if(weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } 
+      else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+      
+      letzteUhrWeiss = aktuelleZeit;
+      Keyboard.print("W"); werIstAmZug = 'S'; aktualisiereAnzeige();
+    }
+    else if (aktuelleZeit - letzteFigurZeit >= entprellZeitFigur) {
+      int zielMagnet = weissIstLinksSitzen ? magnetLinks : magnetRechts;
+      if (digitalRead(pinQ_Weiss) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("Q"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinR_Weiss) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("R"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinB_Weiss) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("B"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinN_Weiss) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("N"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'S'; aktualisiereAnzeige();
+      }
+    }
+  }
+
+  // ==========================================
+  // ZÜGE FÜR SCHWARZ (Nur aktiv, wenn werIstAmZug == 'S')
+  // ==========================================
+  if (werIstAmZug == 'S') {
+    if (digitalRead(tasterSchwarz) == LOW && (aktuelleZeit - letzteUhrSchwarz >= entprellZeitUhr)) {
+      // Schwarz sitzt gegenüber von Weiß
+      int zielMagnet = weissIstLinksSitzen ? magnetRechts : magnetLinks;
+      digitalWrite(zielMagnet, HIGH);
+      if(!weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } 
+      else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+      
+      letzteUhrSchwarz = aktuelleZeit;
+      Keyboard.print("S"); werIstAmZug = 'W'; aktualisiereAnzeige();
+    }
+    else if (aktuelleZeit - letzteFigurZeit >= entprellZeitFigur) {
+      int zielMagnet = weissIstLinksSitzen ? magnetRechts : magnetLinks;
+      if (digitalRead(pinQ_Schwarz) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(!weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("q"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinR_Schwarz) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(!weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("r"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinB_Schwarz) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(!weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("b"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereAnzeige();
+      }
+      else if (digitalRead(pinN_Schwarz) == LOW) {
+        digitalWrite(zielMagnet, HIGH); if(!weissIstLinksSitzen) { magnetAnZeitLinks = aktuelleZeit; magnetAktivLinks = true; } else { magnetAnZeitRechts = aktuelleZeit; magnetAktivRechts = true; }
+        Keyboard.print("n"); letzteFigurZeit = aktuelleZeit; werIstAmZug = 'W'; aktualisiereAnzeige();
+      }
+    }
+  }
+}
+
+// ==========================================
+// DIE INTELLIGENTE LED-LOGIK (Unverändert)
+// ==========================================
+void aktualisiereAnzeige() {
+  digitalWrite(ledGelbLinks, LOW);
+  digitalWrite(ledRotLinks, LOW);
+  digitalWrite(ledGelbRechts, LOW);
+  digitalWrite(ledRotRechts, LOW);
+
+  if (weissIstLinksSitzen) {
+    if (werIstAmZug == 'W') { digitalWrite(ledGelbLinks, HIGH); } 
+    else { digitalWrite(ledRotRechts, HIGH); }
+  } 
+  else {
+    if (werIstAmZug == 'W') { digitalWrite(ledGelbRechts, HIGH); } 
+    else { digitalWrite(ledRotLinks, HIGH); }
+  }
+}
